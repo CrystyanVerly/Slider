@@ -14,7 +14,7 @@ export default class Slider {
       ...config,
     };
 
-    this.distance = { inicial: 0, moving: 0, final: 0 };
+    this.distance = { initial: 0, moving: 0, final: 0 };
 
     this.binder();
   }
@@ -23,7 +23,7 @@ export default class Slider {
   }
 
   binder() {
-    const toBind = ['onStart', 'onMoving', 'onFinal'];
+    const toBind = ['onStart', 'onFinal'];
     toBind.forEach((m) => (this[m] = this[m].bind(this)));
 
     this.onMoving = throttle(this.onMoving.bind(this), 16);
@@ -35,16 +35,27 @@ export default class Slider {
 
   onStart(e) {
     e.preventDefault();
-    this.distance.inicial = Math.round(e.clientX);
+    this.distance.initial = Math.round(e.clientX);
     this.wrapper.addEventListener('pointermove', this.onMoving);
     this.wrapper.addEventListener('pointerup', this.onFinal);
   }
-  onMoving() {
-    console.log('moveu');
+  onMoving({ clientX }) {
+    this.doesMoving(this.trackOnMoving(clientX));
+    console.log(this.distance);
   }
   onFinal() {
     console.log('terminou');
     this.wrapper.removeEventListener('pointermove', this.onMoving);
     this.wrapper.removeEventListener('pointerup', this.onFinal);
+    this.distance.final += this.distance.moving;
+    this.distance.moving = 0;
+  }
+  trackOnMoving(clientX) {
+    const calcDist = Math.round((clientX - this.distance.initial) * 1.1);
+    this.distance.moving = calcDist;
+    return this.distance.final + calcDist;
+  }
+  doesMoving(distX) {
+    this.rail.style.transform = `translate3d(${distX}px, 0, 0)`;
   }
 }
