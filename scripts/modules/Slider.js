@@ -39,11 +39,13 @@ export default class Slider {
     toBind.forEach((m) => (this[m] = this[m].bind(this)));
 
     this.onMoving = throttle(this.onMoving.bind(this), 16);
+    this.onResizing = throttle(this.onResizing.bind(this), 200);
   }
 
   mainListener() {
     this.wrapper.addEventListener('pointerdown', this.onStart);
     this.wrapper.style.setProperty('--items-perView', this.perView);
+    window.addEventListener('resize', this.onResizing);
   }
 
   setupInitialPosition() {
@@ -95,6 +97,10 @@ export default class Slider {
     this.wrapper.removeEventListener('pointermove', this.onMoving);
     this.wrapper.removeEventListener('pointerup', this.onFinal);
     this.goTo();
+  }
+
+  onResizing() {
+    setTimeout(() => this.goTo(), 200);
   }
 
   trackOnMoving(clientX) {
