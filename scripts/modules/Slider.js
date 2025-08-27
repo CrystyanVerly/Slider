@@ -11,11 +11,10 @@ export default class Slider {
     }
 
     this.config = {
-      module: 'paged', // step → 1 by 1 | paged → perView by perView
-      firstItem: 0,
-      perView: 1,
+      module: 'step', // step → 1 by 1 | paged → perView by perView
+      firstItem: 4,
+      perView: 3,
       looping: false,
-
       ...config,
     };
 
@@ -23,13 +22,15 @@ export default class Slider {
     this.index = {
       active: this.config.firstItem,
       isForward: true,
-      last: this.lastVisibleIndex,
+      clamp: this.clampLastIndex,
+      last: this.totalItems.length,
     };
 
     this.binder();
   }
 
   init() {
+    this.setupInitialPosition();
     this.mainListener();
   }
 
@@ -43,10 +44,10 @@ export default class Slider {
   mainListener() {
     this.wrapper.addEventListener('pointerdown', this.onStart);
     this.wrapper.style.setProperty('--items-perView', this.perView);
-    this.setupInitialPosition();
   }
 
   setupInitialPosition() {
+    this.activeIndex = this.trimEdges(this.activeIndex);
     this.distance.final = -(this.activeIndex * this.itemWidth);
     this.moveItem(this.distance.final, false);
   }
@@ -66,7 +67,7 @@ export default class Slider {
   set activeIndex(value) {
     return (this.index.active = this.trimEdges(value));
   }
-  get lastVisibleIndex() {
+  get clampLastIndex() {
     return Math.max(0, this.totalItems.length - this.perView);
   }
   get wrapperWidth() {
@@ -109,34 +110,36 @@ export default class Slider {
 
   trimEdges(index) {
     if (index < 0) return 0;
-    if (index > this.lastVisibleIndex) return this.lastVisibleIndex;
+    if (index > this.clampLastIndex) return this.clampLastIndex;
     return index;
   }
 
   changeDragging() {
     const minMove = this.wrapperWidth * 0.1;
     const userMoving = this.distance.moving;
-
     if (userMoving > minMove) this.prevItem();
     else if (userMoving < -minMove) this.nextItem();
   }
 
   goTo() {
     this.changeDragging();
-    this.activeIndex = this.trimEdges(this.activeIndex);
     this.distance.final = -(this.activeIndex * this.itemWidth);
     this.moveItem(this.distance.final);
   }
 
-  prevItem(e) {
+  setDirection(direction, e) {
     e?.preventDefault();
-    if (this.module === 'step') this.activeIndex--;
-    else if (this.module === 'paged') this.activeIndex -= this.perView;
+    const chosenModule = this.module === 'step' ? 1 : this.perView;
+    this.activeIndex += chosenModule * direction;
+    if (!this.config.looping) this.index.isForward = direction > 0;
+    return this.index.isForward;
+  }
+
+  prevItem(e) {
+    this.setDirection(-1, e);
   }
 
   nextItem(e) {
-    e?.preventDefault();
-    if (this.module === 'step') this.activeIndex++;
-    else if (this.module === 'paged') this.activeIndex += this.perView;
+    this.setDirection(1, e);
   }
 }
