@@ -25,6 +25,7 @@ export default class Slider {
 
     this.binder();
   }
+
   init() {
     this.mainListener();
   }
@@ -107,8 +108,7 @@ export default class Slider {
 
     if (index < 0) return 0;
     if (this.module === 'paged' && index > maxPaged) return maxPaged;
-    if (this.module === 'step' && index > maxIndex) return maxIndex;
-    console.log(index, maxIndex);
+    if (this.module === 'step' && index - 1 === maxPaged) return index - 1;
 
     return index;
   }
@@ -127,6 +127,7 @@ export default class Slider {
     if (this.module === 'step') this.activeItem--;
     else if (this.module === 'paged') this.activeItem -= this.perView;
   }
+
   nextItem(e) {
     e?.preventDefault();
     if (this.module === 'step') this.activeItem++;
