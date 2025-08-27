@@ -5,11 +5,15 @@ export default class Slider {
     this.wrapper = document.querySelector(wrapper);
     this.rail = document.querySelector(rail);
 
-    if (!wrapper || !rail) console.warn(`'wrapper' or 'rail' not found.`);
+    if (!this.wrapper || !this.rail) {
+      console.warn(`'wrapper' or 'rail' not found.`);
+      return;
+    }
 
     this.config = {
       module: 'paged', // step → 1 by 1 | paged → perView by perView
-      perView: 3,
+      firstItem: 0,
+      perView: 1,
       looping: false,
 
       ...config,
@@ -17,9 +21,9 @@ export default class Slider {
 
     this.distance = { initial: 0, moving: 0, final: 0 };
     this.index = {
-      active: 0,
+      active: this.config.firstItem,
       isForward: true,
-      last: this.lastItem,
+      last: this.lastVisibleIndex,
     };
 
     this.binder();
@@ -39,6 +43,12 @@ export default class Slider {
   mainListener() {
     this.wrapper.addEventListener('pointerdown', this.onStart);
     this.wrapper.style.setProperty('--items-perView', this.perView);
+    this.setupInitialPosition();
+  }
+
+  setupInitialPosition() {
+    this.distance.final = -(this.activeIndex * this.itemWidth);
+    this.moveItem(this.distance.final, false);
   }
 
   get module() {
@@ -50,14 +60,14 @@ export default class Slider {
   get totalItems() {
     return [...this.rail.children];
   }
-  get activeItem() {
+  get activeIndex() {
     return this.index.active;
   }
-  set activeItem(value) {
+  set activeIndex(value) {
     return (this.index.active = this.trimEdges(value));
   }
-  get lastItem() {
-    return this.totalItems.length - 1;
+  get lastVisibleIndex() {
+    return Math.max(0, this.totalItems.length - this.perView);
   }
   get wrapperWidth() {
     return this.wrapper.offsetWidth;
@@ -68,9 +78,6 @@ export default class Slider {
   get totalPages() {
     return Math.ceil(this.totalItems.length / this.perView);
   }
-  get clampLastIndex() {
-    return Math.max(0, this.totalItems.length - this.perView);
-  }
 
   onStart(e) {
     e.preventDefault();
@@ -80,17 +87,13 @@ export default class Slider {
   }
 
   onMoving({ clientX }) {
-    this.moveItem(this.trackOnMoving(clientX));
-    console.log(this.distance);
+    this.moveItem(this.trackOnMoving(clientX), false);
   }
 
   onFinal() {
     this.wrapper.removeEventListener('pointermove', this.onMoving);
     this.wrapper.removeEventListener('pointerup', this.onFinal);
-    this.changeItem();
-    this.activeItem = this.trimEdges(this.activeItem);
-    this.distance.final = -(this.activeItem * this.itemWidth);
-    this.moveItem(this.distance.final);
+    this.goTo();
   }
 
   trackOnMoving(clientX) {
@@ -101,32 +104,39 @@ export default class Slider {
 
   moveItem(distX, transition = true) {
     this.rail.style.transform = `translate3d(${distX}px, 0, 0)`;
+    this.rail.style.transition = transition ? `transform .3s ease` : 'none';
   }
 
   trimEdges(index) {
     if (index < 0) return 0;
-    if (index > this.clampLastIndex) return this.clampLastIndex;
+    if (index > this.lastVisibleIndex) return this.lastVisibleIndex;
     return index;
   }
 
-  changeItem() {
+  changeDragging() {
     const minMove = this.wrapperWidth * 0.1;
     const userMoving = this.distance.moving;
 
     if (userMoving > minMove) this.prevItem();
     else if (userMoving < -minMove) this.nextItem();
-    else this.moveItem(this.distance.final);
+  }
+
+  goTo() {
+    this.changeDragging();
+    this.activeIndex = this.trimEdges(this.activeIndex);
+    this.distance.final = -(this.activeIndex * this.itemWidth);
+    this.moveItem(this.distance.final);
   }
 
   prevItem(e) {
     e?.preventDefault();
-    if (this.module === 'step') this.activeItem--;
-    else if (this.module === 'paged') this.activeItem -= this.perView;
+    if (this.module === 'step') this.activeIndex--;
+    else if (this.module === 'paged') this.activeIndex -= this.perView;
   }
 
   nextItem(e) {
     e?.preventDefault();
-    if (this.module === 'step') this.activeItem++;
-    else if (this.module === 'paged') this.activeItem += this.perView;
+    if (this.module === 'step') this.activeIndex++;
+    else if (this.module === 'paged') this.activeIndex += this.perView;
   }
 }
