@@ -8,8 +8,8 @@ export default class Slider {
     if (!wrapper || !rail) console.warn(`'wrapper' or 'rail' not found.`);
 
     this.config = {
-      module: 'step', // step → 1 by 1 | paged → perView by perView
-      perView: 4,
+      module: 'paged', // step → 1 by 1 | paged → perView by perView
+      perView: 3,
       looping: false,
 
       ...config,
@@ -17,7 +17,6 @@ export default class Slider {
 
     this.distance = { initial: 0, moving: 0, final: 0 };
     this.index = {
-      // proximo dia: mapear item e index que estao ativos em tela
       active: 0,
       isForward: true,
       last: this.lastItem,
@@ -69,6 +68,9 @@ export default class Slider {
   get totalPages() {
     return Math.ceil(this.totalItems.length / this.perView);
   }
+  get clampLastIndex() {
+    return Math.max(0, this.totalItems.length - this.perView);
+  }
 
   onStart(e) {
     e.preventDefault();
@@ -83,7 +85,6 @@ export default class Slider {
   }
 
   onFinal() {
-    console.log('terminou');
     this.wrapper.removeEventListener('pointermove', this.onMoving);
     this.wrapper.removeEventListener('pointerup', this.onFinal);
     this.changeItem();
@@ -103,13 +104,8 @@ export default class Slider {
   }
 
   trimEdges(index) {
-    const maxIndex = this.lastItem;
-    const maxPaged = maxIndex - this.perView + 1;
-
     if (index < 0) return 0;
-    if (this.module === 'paged' && index > maxPaged) return maxPaged;
-    if (this.module === 'step' && index - 1 === maxPaged) return index - 1;
-
+    if (index > this.clampLastIndex) return this.clampLastIndex;
     return index;
   }
 
