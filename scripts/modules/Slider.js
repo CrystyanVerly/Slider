@@ -12,9 +12,9 @@ export default class Slider {
 
     this.config = {
       module: 'step', // step → 1 by 1 | paged → perView by perView
-      firstItem: 4,
-      perView: 3,
-      looping: false,
+      firstItem: 0,
+      perView: 1,
+      looping: true,
       ...config,
     };
 
@@ -23,7 +23,7 @@ export default class Slider {
       active: this.config.firstItem,
       isForward: true,
       clamp: this.clampLastIndex,
-      last: this.totalItems.length,
+      last: this.realItems.length,
     };
 
     this.binder();
@@ -32,10 +32,11 @@ export default class Slider {
   init() {
     this.setupInitialPosition();
     this.mainListener();
+    this.setUpIfCloning();
   }
 
   binder() {
-    const toBind = ['onStart', 'onFinal'];
+    const toBind = ['onStart', 'onFinal', 'goToIfLooping'];
     toBind.forEach((m) => (this[m] = this[m].bind(this)));
 
     this.onMoving = throttle(this.onMoving.bind(this), 16);
@@ -50,8 +51,15 @@ export default class Slider {
 
   setupInitialPosition() {
     this.activeIndex = this.trimEdges(this.activeIndex);
-    this.distance.final = -(this.activeIndex * this.itemWidth);
+    this.upDateFinalDistance();
     this.moveItem(this.distance.final, false);
+  }
+
+  setUpIfCloning() {
+    if (!this.config.looping) return;
+    this.rail.addEventListener('transitionend', this.goToIfLooping);
+    this.cloneIfLoop();
+    this.startWithLooping();
   }
 
   get module() {
@@ -60,8 +68,11 @@ export default class Slider {
   get perView() {
     return this.config.perView;
   }
-  get totalItems() {
-    return [...this.rail.children];
+  get realItems() {
+    const realItems = [...this.rail.children].filter(
+      (el) => !el.classList.contains(this.classClone),
+    );
+    return realItems;
   }
   get activeIndex() {
     return this.index.active;
@@ -70,7 +81,7 @@ export default class Slider {
     return (this.index.active = this.trimEdges(value));
   }
   get clampLastIndex() {
-    return Math.max(0, this.totalItems.length - this.perView);
+    return Math.max(0, this.realItems.length - this.perView);
   }
   get wrapperWidth() {
     return this.wrapper.offsetWidth;
@@ -79,7 +90,11 @@ export default class Slider {
     return this.wrapperWidth / this.perView;
   }
   get totalPages() {
-    return Math.ceil(this.totalItems.length / this.perView);
+    return Math.floor(this.realItems.length / this.perView);
+  }
+
+  get itemsWithClones() {
+    return [...this.rail.children];
   }
 
   onStart(e) {
@@ -99,6 +114,12 @@ export default class Slider {
     this.goTo();
   }
 
+  upDateFinalDistance() {
+    return (this.distance.final = Math.round(
+      -(this.activeIndex * this.itemWidth),
+    ));
+  }
+
   onResizing() {
     setTimeout(() => this.goTo(), 200);
   }
@@ -115,8 +136,11 @@ export default class Slider {
   }
 
   trimEdges(index) {
+    if (this.config.looping) return index;
+
     if (index < 0) return 0;
     if (index > this.clampLastIndex) return this.clampLastIndex;
+
     return index;
   }
 
@@ -129,7 +153,7 @@ export default class Slider {
 
   goTo() {
     this.changeDragging();
-    this.distance.final = -(this.activeIndex * this.itemWidth);
+    this.upDateFinalDistance();
     this.moveItem(this.distance.final);
   }
 
@@ -147,5 +171,57 @@ export default class Slider {
 
   nextItem(e) {
     this.setDirection(1, e);
+  }
+
+  cloneIfLoop() {
+    const elements = this.realItems;
+    const nPerView = this.perView;
+
+    if (elements.length <= nPerView) return;
+
+    this.classClone = 'clonedItems';
+
+    for (let i = 0; i < nPerView; i++) {
+      const clone = elements[i].cloneNode(true);
+      clone.classList.add(this.classClone);
+      this.rail.appendChild(clone);
+    }
+
+    for (let i = elements.length - nPerView; i < elements.length; i++) {
+      const clone = elements[i].cloneNode(true);
+      clone.classList.add(this.classClone);
+      this.rail.insertBefore(clone, elements[0]);
+    }
+  }
+
+  goToIfLooping() {
+    if (this.isClone(this.activeIndex)) {
+      this.getRealIndex(this.activeIndex);
+      this.upDateFinalDistance();
+      this.rail.offsetHeight;
+      this.moveItem(this.distance.final, false);
+    }
+  }
+
+  startWithLooping() {
+    this.activeIndex = this.perView;
+    this.upDateFinalDistance();
+    this.moveItem(this.distance.final, false);
+  }
+
+  isClone(index) {
+    const verify = this.itemsWithClones[index].classList.contains(
+      this.classClone,
+    );
+    return verify;
+  }
+
+  getRealIndex(index) {
+    const totalReals = this.realItems.length;
+    const perView = this.perView;
+    const realRelative =
+      (((index - perView) % totalReals) + totalReals) % totalReals;
+    this.activeIndex = perView + realRelative;
+    return realRelative;
   }
 }
